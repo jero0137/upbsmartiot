@@ -1,68 +1,17 @@
-// #include <Arduino.h>
-// #include <SPI.h>
-// #include <LoRa.h>
-
-// #define SCK 5
-// #define MISO 19
-// #define MOSI 27
-// #define SS 18
-// #define RST 23
-// #define DIO 26
-// #define BAND 915E6
-
-// int contador = 0;
-// void setup() {
-//   Serial.begin(115200);
-//   SPI.begin(SCK,MISO,MOSI,SS);
-//   LoRa.setPins(SS,RST,DIO);
-//   if (!LoRa.begin(915E6))
-//   {
-//     Serial.print("No inicio el radio");
-//     while (1);
-//   }
-//   Serial.print("Radio inicializado exitosamente");
-//   LoRa.setFrequency(915E6);
-// }
-
-// void loop() {
-//   int a;
-//   while(LoRa.beginPacket() == 0)
-//   {
-//     Serial.print("esperando por el radio...");
-//     delay(100);
-//   }
-//   Serial.print("enviando data");
-//   Serial.println(contador);
-
-//   LoRa.beginPacket();
-//   Serial.println("incio paquete");
-//   LoRa.print("hola");
-//   Serial.println("escribio hola");
-//   LoRa.print(contador);
-//   Serial.println("incremetno contador");
-//   a = LoRa.endPacket();
-//   if (a) Serial.println("transmision exitosa");
-//   else Serial.println("error de tx");
-//   Serial.println("termino paquete");
-//   contador++;
-
-//   delay(1000);
-// }
-
-// Only supports SX1276/SX1278
 #include <LoRa.h>
 #include "LoRaBoards.h"
+#include <TinyGPS++.h>
+#include <ClosedCube_HDC1080.h>
 
 #ifndef CONFIG_RADIO_FREQ
-#define CONFIG_RADIO_FREQ           915.0
+#define CONFIG_RADIO_FREQ 915.0
 #endif
 #ifndef CONFIG_RADIO_OUTPUT_POWER
-#define CONFIG_RADIO_OUTPUT_POWER   17
+#define CONFIG_RADIO_OUTPUT_POWER 17
 #endif
 #ifndef CONFIG_RADIO_BW
-#define CONFIG_RADIO_BW             125.0
+#define CONFIG_RADIO_BW 125.0
 #endif
-
 
 #if !defined(USING_SX1276) && !defined(USING_SX1278)
 #error "LoRa example is only allowed to run SX1276/78. For other RF models, please run examples/RadioLibExamples"
@@ -70,22 +19,65 @@
 
 int counter = 0;
 
+TinyGPSPlus gps;
+
+const int numMedidas = 3;
+
+float medidas_temp[numMedidas];
+float medidas_hum[numMedidas];
+float promedio_temp;
+float promedio_hum;
+
+float latitud;
+float longitud;
+
+ClosedCube_HDC1080 sensor;
+
+float calcularPromedio(float medidas[])
+{
+    float promedio;
+    float sum = 0;
+    for (int i = 0; i < numMedidas; i++)
+    {
+        sum += medidas[i];
+    }
+    return promedio = sum / numMedidas;
+}
+
+static void smartDelay(unsigned long ms)
+{
+    unsigned long start = millis();
+    do
+    {
+        while (Serial1.available())
+            gps.encode(Serial1.read());
+    } while (millis() - start < ms);
+}
+
 void setup()
 {
+    sensor.begin(0x40);
+    delay(100);
+    Serial.begin(115200);
+    Serial1.begin(9600, SERIAL_8N1, 34, 12); // RX, TX
+    delay(100);
+
     setupBoards();
     // When the power is turned on, a delay is required.
     delay(1500);
 
-#ifdef  RADIO_TCXO_ENABLE
+#ifdef RADIO_TCXO_ENABLE
     pinMode(RADIO_TCXO_ENABLE, OUTPUT);
     digitalWrite(RADIO_TCXO_ENABLE, HIGH);
 #endif
 
     Serial.println("LoRa Sender");
     LoRa.setPins(RADIO_CS_PIN, RADIO_RST_PIN, RADIO_DIO0_PIN);
-    if (!LoRa.begin(CONFIG_RADIO_FREQ * 1000000)) {
+    if (!LoRa.begin(CONFIG_RADIO_FREQ * 1000000))
+    {
         Serial.println("Starting LoRa failed!");
-        while (1);
+        while (1)
+            ;
     }
 
     LoRa.setTxPower(CONFIG_RADIO_OUTPUT_POWER);
@@ -103,20 +95,51 @@ void setup()
     LoRa.disableInvertIQ();
 
     LoRa.setCodingRate4(7);
+
 }
 
 void loop()
 {
+
+    // SmartDelay para GPS, se encarga de obtener lo que envia el GPS
+    smartDelay(10000);
+
+    // Chirp
+    for (int i = 0; i < numMedidas; i++)
+    {
+        // Tomar medidas
+        float temperature = sensor.readTemperature();
+        smartDelay(100); // Respetamos el tiempo de espera para el sensor
+        float humidity = sensor.readHumidity();
+        smartDelay(100); // Respetamos el tiempo de espera para el sensor
+        // Guardar medidas
+        medidas_temp[i] = temperature;
+        medidas_hum[i] = humidity;
+    }
+    // Prunning
+    // Calcular promedios
+    promedio_temp = calcularPromedio(medidas_temp);
+    promedio_hum = calcularPromedio(medidas_hum);
+
+    // Leer datos del GPS
+    gps.encode(Serial1.read());
+
+    // Obtener latitud y longitud
+    latitud = gps.location.lat();
+    longitud = gps.location.lng();
+
+    // Empaquetar datos
+    String jsonData = "jeroag${\"lat\": {\"value\":" + String(gps.location.lat(), 6) + "} ,\"lon\": {\"value\":" + String(gps.location.lng(), 6) + "} , \"temp\": {\"value\":" + String(promedio_temp) + "} ,\"humedad\": {\"value\":" + String(promedio_hum) + "}}";
     Serial.print("Sending packet: ");
-    Serial.println(counter);
+    Serial.println(jsonData);
 
     // send packet
     LoRa.beginPacket();
-    LoRa.print("hello ");
-    LoRa.print(counter);
+    LoRa.print(jsonData);
     LoRa.endPacket();
 
-    if (u8g2) {
+    if (u8g2)
+    {
         char buf[256];
         u8g2->clearBuffer();
         u8g2->drawStr(0, 12, "Transmitting: OK!");
@@ -124,6 +147,5 @@ void loop()
         u8g2->drawStr(0, 30, buf);
         u8g2->sendBuffer();
     }
-    counter++;
-    delay(5000);
+    delay(6000);
 }
