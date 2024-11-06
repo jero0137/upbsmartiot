@@ -68,50 +68,75 @@ app.layout = html.Div([
         ]),
         dcc.Tab(label='Datos Actuales', children=[
             html.H3("Temperatura y Humedad Actuales"),
-            html.Div(id="current-temperature", style={"font-size": "24px", "margin-bottom": "10px"}),
-            html.Div(id="current-humidity", style={"font-size": "24px", "margin-bottom": "20px"}),
-            dcc.Graph(id='temp-actual-graph'),
-            dcc.Graph(id='humedad-actual-graph')
+            dbc.Row([
+                dbc.Col(dcc.Graph(id='temp-actual-graph'), width=6),
+                dbc.Col(dcc.Graph(id='humedad-actual-graph'), width=6)
+            ], justify="center") 
         ]),
         dcc.Tab(label='Pronóstico y Recomendaciones', children=[
             html.H3("Pronóstico de Temperatura y Humedad (24 horas)"),
-            dcc.Graph(id='temp-prediccion-graph'),
-            dcc.Graph(id='humedad-prediccion-graph'),
+            dbc.Card([
+                dcc.Graph(id='temp-prediccion-graph'),
+                dcc.Graph(id='humedad-prediccion-graph')
+            ]),
             html.Div(id='recommendation-text', style={'margin-top': '20px', "font-size": "20px"})
         ])
-    ])
+    ]),
+    dcc.Interval(id='interval-component', interval=5*60*1000, n_intervals=0)  # Actualización cada 5 minutos
 ])
 
-# Callback para actualizar datos actuales
-@app.callback(
-    [Output('current-temperature', 'children'),
-     Output('current-humidity', 'children')],
-    [Input('temp-actual-graph', 'id')]
-)
-def update_current_values(_):
-    data = get_current_data()
-    temperature_text = f"Temperatura actual: {data['temperature']} °C"
-    humidity_text = f"Humedad actual: {data['humidity']} %"
-    return temperature_text, humidity_text
 
-# Callback para actualizar las gráficas de datos actuales
+# Callback para actualizar los gauges de datos actuales
 @app.callback(
     [Output('temp-actual-graph', 'figure'),
      Output('humedad-actual-graph', 'figure')],
     [Input('temp-actual-graph', 'id')]
 )
-def update_current_graphs(_):
-    temp_data, humidity_data = get_historical_data()
-    temp_fig = go.Figure(data=[go.Scatter(x=temp_data['timestamp'], y=temp_data['temperature'], mode='lines', name='Temperature')])
-    humidity_fig = go.Figure(data=[go.Scatter(x=humidity_data['timestamp'], y=humidity_data['humidity'], mode='lines', name='Humidity')])
-    return temp_fig, humidity_fig
+def update_current_gauges(_):
+    data = get_current_data()
+    
+    # Determinamos el color del gauge de temperatura según el valor
+    temp_color = "green" if data['temperature'] < 15 else "yellow" if data['temperature'] < 30 else "red"
+    # Gauge de temperatura con fondo blanco y color dinámico en la barra
+    temp_gauge = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=data['temperature'],
+        title={'text': "Temperatura Actual (°C)"},
+        gauge={
+            'axis': {'range': [0, 50], 'tickwidth': 1, 'tickcolor': "darkgrey"},
+            'bar': {'color': temp_color},  # Color de la barra dinámico
+            'bgcolor': "white",  # Fondo blanco para el gauge
+            'steps': []  # Sin color en los steps
+        }
+    ))
+
+    # Determinamos el color del gauge de humedad según el valor
+    humidity_color = "green" if data['humidity'] < 30 else "yellow" if data['humidity'] < 60 else "red"
+    # Gauge de humedad con fondo blanco y color dinámico en la barra
+    humidity_gauge = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=data['humidity'],
+        title={'text': "Humedad Actual (%)"},
+        gauge={
+            'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "darkgrey"},
+            'bar': {'color': humidity_color},  # Color de la barra dinámico
+            'bgcolor': "white",  # Fondo blanco para el gauge
+            'steps': []  # Sin color en los steps
+        }
+    ))
+
+    return temp_gauge, humidity_gauge
+
+
+
+
 
 # Callback para actualizar las gráficas de predicciones y recomendaciones
 @app.callback(
     [Output('temp-prediccion-graph', 'figure'),
      Output('humedad-prediccion-graph', 'figure'),
      Output('recommendation-text', 'children')],
-    [Input('temp-prediccion-graph', 'id')]
+    [Input('interval-component', 'n_intervals')]
 )
 def update_prediction_graphs(_):
     predictions = get_predictions()
