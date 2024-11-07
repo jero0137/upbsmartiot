@@ -1,3 +1,4 @@
+import os
 from crate import client
 import psycopg2
 from datetime import datetime, timedelta
@@ -13,11 +14,11 @@ def convert_epoch_ms_to_timestamp(epoch_ms):
 def connect_to_postgresql():
     try:
         connection = psycopg2.connect(
-            host="localhost",
-            port="5432",
-            user="jero",
-            password="1234",
-            dbname="medidas"
+            host=os.getenv("POSTGRES_HOST", "postgres_db"),
+            port=os.getenv("POSTGRES_PORT", "5432"),
+            user=os.getenv("POSTGRES_USER", "jero"),
+            password=os.getenv("POSTGRES_PASSWORD", "1234"),
+            dbname=os.getenv("POSTGRES_DB", "medidas")
         )
         return connection
     except Exception as e:

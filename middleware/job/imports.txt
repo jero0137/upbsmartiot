@@ -1,0 +1,5 @@
+crate[sqlalchemy]
+psycopg2
+pandas
+scikit-learn
+skforecast

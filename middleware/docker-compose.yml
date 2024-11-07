@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  postgres_db:
+    image: postgres:latest 
+    hostname: postgres_db
+    container_name: postgres_db
+    restart: always
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: jero
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: medidas
+
+  app:
+    build: ./job/
+    container_name: app
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres_db
+    environment:
+      - POSTGRES_HOST=postgres_db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=jero
+      - POSTGRES_PASSWORD=1234
+      - POSTGRES_DB=medidas
+
+volumes:
+  pgdata:
+    driver: local
