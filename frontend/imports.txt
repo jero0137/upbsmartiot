@@ -1,0 +1,7 @@
+Flask
+dash
+dash-bootstrap-components
+plotly
+psycopg2-binary
+pandas
+crate[sqlalchemy]

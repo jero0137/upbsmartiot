@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+    environment:
+      - POSTGRES_HOST=postgres_db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=jero
+      - POSTGRES_PASSWORD=1234
+      - POSTGRES_DB=medidas
+
+    networks:
+      - middleware_custom_network
+
+networks:
+  middleware_custom_network:
+    external: true
