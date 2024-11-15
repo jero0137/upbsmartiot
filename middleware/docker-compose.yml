@@ -5,15 +5,18 @@ services:
     image: postgres:latest 
     hostname: postgres_db
     container_name: postgres_db
-    restart: always
     ports:
       - "5432:5432"
+    restart: always
     volumes:
       - pgdata:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: jero
       POSTGRES_PASSWORD: 1234
       POSTGRES_DB: medidas
+    
+    networks:
+          - custom_network
 
   app:
     build: ./job/
@@ -30,6 +33,16 @@ services:
       - POSTGRES_PASSWORD=1234
       - POSTGRES_DB=medidas
 
+    networks:
+      - custom_network
+
 volumes:
   pgdata:
     driver: local
+
+networks:
+  custom_network:
+    driver: bridge
+
+
+        

@@ -1,0 +1,2 @@
+# Corre app.py a las 00:00 cada dia
+0 0 * * * /usr/local/bin/python /usr/src/app/app.py >> /var/log/cron.log 2>&1

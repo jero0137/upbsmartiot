@@ -147,9 +147,8 @@ void loop()
         u8g2->drawStr(0, 30, buf);
         u8g2->sendBuffer();
     }
-    delay(6000);
 
-    if(millis() > 3600000){
-        ESP.restart();
-    }
+    delay(300000);
+
+    
 }
